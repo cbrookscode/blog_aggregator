@@ -22,6 +22,7 @@ func Read() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	defer file.Close()
 
 	mybytes, err := io.ReadAll(file)
 	if err != nil {
@@ -34,4 +35,37 @@ func Read() (Config, error) {
 		return Config{}, err
 	}
 	return config, nil
+}
+
+func (c *Config) SetUser(user string) error {
+	// write conifg struct to json file after setting the current_user_name field-
+	c.CurrentUserName = user
+	new_json, err := json.Marshal(c)
+	if err != nil {
+		return err
+	}
+
+	loc, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+
+	//check if file exists
+	if _, err = os.Stat(loc + "/.gatorconfig.json"); err != nil {
+		return err
+	}
+
+	//create/overwrite existing file with blank slate
+	file, err := os.Create(loc + "/.gatorconfig.json")
+	if err != nil {
+		return err
+	}
+
+	//write to new blank file
+	_, err = file.WriteString(string(new_json))
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

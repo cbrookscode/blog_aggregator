@@ -10,8 +10,20 @@ func main() {
 	test_struct, err := config.Read()
 	if err != nil {
 		fmt.Println(err)
-	} else {
-		fmt.Println(test_struct)
+		return
 	}
-	return
+	fmt.Println(test_struct)
+
+	err = test_struct.SetUser("Hilda Brown")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	test_struct, err = config.Read()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(test_struct)
 }
