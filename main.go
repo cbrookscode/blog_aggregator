@@ -1,14 +1,19 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 
 	config "github.com/cbrookscode/blog_aggregator/internal/config"
+	database "github.com/cbrookscode/blog_aggregator/internal/database"
 	_ "github.com/lib/pq"
 )
 
+// DB URL - "postgres://postgres:postgres@localhost:5432/gator?sslmode=disable"
+
 type state struct {
+	db  *database.Queries
 	cfg *config.Config
 }
 
@@ -17,8 +22,8 @@ type command struct {
 	arguments []string
 }
 
+// This will be a map of command names to their handler functions.
 type commands struct {
-	// This will be a map of command names to their handler functions.
 	cmdnames map[string]func(*state, command) error
 }
 
@@ -26,6 +31,7 @@ type commands struct {
 func (c *commands) register(name string, f func(*state, command) error) {
 	if _, exists := c.cmdnames[name]; exists {
 		fmt.Println("The handler you are trying to register already exists")
+		return
 	}
 
 	c.cmdnames[name] = f
@@ -58,16 +64,33 @@ func handlerLogin(s *state, cmd command) error {
 	return nil
 }
 
+func handlerRegister(s *state, cmd command) error {
+	if len(cmd.arguments) == 0 || len(cmd.arguments) > 1 {
+		return fmt.Errorf("can only provide one string to represent login name. please try again. user was not registered for login")
+	}
+
+	err := s.cfg.SetUser(cmd.arguments[0])
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("User has been set")
+	return nil
+}
+
 func cli() (int, error) {
+	db, err := sql.Open("postgres", "postgres://postgres:postgres@localhost:5432/gator?sslmode=disable")
+	dbQueries := database.New(db)
+
 	// Read file to use for app state initialization, and print output of config file to get before snapshot
-	test_struct, err := config.Read()
+	my_config, err := config.Read()
 	if err != nil {
 		return 1, err
 	}
 	fmt.Println(test_struct)
 
 	// initialize app state, map of commands, and struct that holds map. Register login command
-	app_state := state{&test_struct}
+	app_state := state{dbQueries, &my_config}
 	cmds := make(map[string]func(*state, command) error)
 	mycmds := commands{cmds}
 	mycmds.register("login", handlerLogin)

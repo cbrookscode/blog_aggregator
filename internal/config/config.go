@@ -50,11 +50,6 @@ func (c *Config) SetUser(user string) error {
 		return err
 	}
 
-	//check if file exists
-	if _, err = os.Stat(loc + "/.gatorconfig.json"); err != nil {
-		return err
-	}
-
 	//create/overwrite existing file with blank slate
 	file, err := os.Create(loc + "/.gatorconfig.json")
 	if err != nil {
