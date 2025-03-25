@@ -13,5 +13,8 @@ RETURNING *;
 -- name: AddFeed :one
 SELECT * FROM feeds WHERE "name" = $1 and "url" = $2;
 
+-- name: GetFeeds :many
+SELECT * FROM feeds;
+
 -- name: DeleteAllFeeds :exec
 TRUNCATE feeds;

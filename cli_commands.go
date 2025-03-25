@@ -206,13 +206,37 @@ func handlerAddFeed(s *state, cmd command) error {
 	return nil
 }
 
+func handlerFeeds(s *state, cmd command) error {
+	// Check for expected length of arguements
+	if len(cmd.arguments) != 0 {
+		return fmt.Errorf("no arguements needed for feeds command")
+	}
+
+	feeds, err := s.db.GetFeeds(context.Background())
+	if err != nil {
+		return fmt.Errorf("error getting feeds from db: %w", err)
+	}
+
+	for i := 0; i < len(feeds); i++ {
+		user, err := s.db.GetUserByID(context.Background(), feeds[i].UserID)
+		if err != nil {
+			return fmt.Errorf("error getting user by id: %w", err)
+		}
+
+		fmt.Printf("* %v\n", feeds[i].Name)
+		fmt.Printf("* %v\n", feeds[i].Url)
+		fmt.Printf("* %v\n", user.Name)
+	}
+
+	return nil
+}
+
 func cli() (int, error) {
 	// Read file to use for app state initialization, and print output of config file to get before snapshot
 	my_config, err := config.Read()
 	if err != nil {
 		return 1, err
 	}
-	fmt.Println(my_config)
 
 	// Open connection to the DB and intialize app_state
 	db, err := sql.Open("postgres", "postgres://postgres:postgres@localhost:5432/gator?sslmode=disable")
@@ -232,6 +256,7 @@ func cli() (int, error) {
 	mycmds.register("users", handlerUsers)
 	mycmds.register("agg", handlerAgg)
 	mycmds.register("addfeed", handlerAddFeed)
+	mycmds.register("feeds", handlerFeeds)
 
 	// build command struct based on inputs from user when running program. first arg is always program name, second is assumed to be command name, rest are arguements for command
 	cmd := command{}
@@ -250,13 +275,6 @@ func cli() (int, error) {
 	if err != nil {
 		return 1, err
 	}
-
-	// test output to see if config file was changed
-	my_config, err = config.Read()
-	if err != nil {
-		return 1, err
-	}
-	fmt.Println(my_config)
 
 	return 0, nil
 }
