@@ -128,6 +128,49 @@ func handlerReset(s *state, cmd command) error {
 	return nil
 }
 
+func handlerUsers(s *state, cmd command) error {
+	// Check for expected length of arguements
+	if len(cmd.arguments) != 0 {
+		return fmt.Errorf("no arguments allowed for users command")
+	}
+	// Get all users from users table
+	users, err := s.db.GetUsers(context.Background())
+	if err != nil {
+		return err
+	}
+
+	if len(users) == 0 {
+		return fmt.Errorf("there are no users in the database yet")
+	}
+
+	// Print user names out in special format
+	for i := 0; i < len(users); i++ {
+		if users[i].Name == s.cfg.CurrentUserName {
+			fmt.Printf("* %v (current)\n", users[i].Name)
+		} else {
+			fmt.Printf("* %v\n", users[i].Name)
+		}
+	}
+
+	return nil
+}
+
+func handlerAgg(s *state, cmd command) error {
+	// Check for expected length of arguements
+	if len(cmd.arguments) != 0 {
+		return fmt.Errorf("no arguments allowed for agg command")
+	}
+	// Get all users from users table
+	rss, err := fetchFeed(context.Background(), "https://www.wagslane.dev/index.xml")
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("%v\n", rss)
+
+	return nil
+}
+
 func cli() (int, error) {
 	// Read file to use for app state initialization, and print output of config file to get before snapshot
 	my_config, err := config.Read()
@@ -151,6 +194,8 @@ func cli() (int, error) {
 	mycmds.register("login", handlerLogin)
 	mycmds.register("register", handlerRegister)
 	mycmds.register("reset", handlerReset)
+	mycmds.register("users", handlerUsers)
+	mycmds.register("agg", handlerAgg)
 
 	// build command struct based on inputs from user when running program. first arg is always program name, second is assumed to be command name, rest are arguements for command
 	cmd := command{}
