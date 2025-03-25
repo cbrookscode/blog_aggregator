@@ -110,7 +110,7 @@ func handlerRegister(s *state, cmd command) error {
 	return nil
 }
 
-// Completely deletes all rows in users DB table. FOR TESTING PURPOSES ONLY
+// Completely deletes all rows in users and DB table. FOR TESTING PURPOSES ONLY
 func handlerReset(s *state, cmd command) error {
 	// Check for expected length of arguements
 	if len(cmd.arguments) != 0 {
@@ -160,13 +160,48 @@ func handlerAgg(s *state, cmd command) error {
 	if len(cmd.arguments) != 0 {
 		return fmt.Errorf("no arguments allowed for agg command")
 	}
-	// Get all users from users table
+
 	rss, err := fetchFeed(context.Background(), "https://www.wagslane.dev/index.xml")
 	if err != nil {
 		return err
 	}
 
 	fmt.Printf("%v\n", rss)
+
+	return nil
+}
+
+func handlerAddFeed(s *state, cmd command) error {
+	// Check for expected length of arguements
+	if len(cmd.arguments) != 2 {
+		return fmt.Errorf("need two arguements for add feed command")
+	}
+	name_string := cmd.arguments[0]
+	url_string := cmd.arguments[1]
+
+	my_config, err := config.Read()
+	if err != nil {
+		return fmt.Errorf("err with reading config: %w", err)
+	}
+
+	user, err := s.db.GetUser(context.Background(), my_config.CurrentUserName)
+	if err != nil {
+		return fmt.Errorf("err with getting user: %w", err)
+	}
+
+	new_feed, err := s.db.CreateFeed(context.Background(), database.CreateFeedParams{
+		ID:        uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		Name:      name_string,
+		Url:       url_string,
+		UserID:    user.ID,
+	})
+	if err != nil {
+		return fmt.Errorf("error with create feed: %w", err)
+	}
+
+	fmt.Println(new_feed)
 
 	return nil
 }
@@ -196,6 +231,7 @@ func cli() (int, error) {
 	mycmds.register("reset", handlerReset)
 	mycmds.register("users", handlerUsers)
 	mycmds.register("agg", handlerAgg)
+	mycmds.register("addfeed", handlerAddFeed)
 
 	// build command struct based on inputs from user when running program. first arg is always program name, second is assumed to be command name, rest are arguements for command
 	cmd := command{}
