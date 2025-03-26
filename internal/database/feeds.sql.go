@@ -13,7 +13,7 @@ import (
 )
 
 const addFeed = `-- name: AddFeed :one
-SELECT id, created_at, updated_at, name, url, user_id, last_fetched_at FROM feeds WHERE "name" = $1 and "url" = $2
+SELECT id, created_at, updated_at, name, url, last_fetched_at, user_id FROM feeds WHERE "name" = $1 and "url" = $2
 `
 
 type AddFeedParams struct {
@@ -30,8 +30,8 @@ func (q *Queries) AddFeed(ctx context.Context, arg AddFeedParams) (Feed, error) 
 		&i.UpdatedAt,
 		&i.Name,
 		&i.Url,
-		&i.UserID,
 		&i.LastFetchedAt,
+		&i.UserID,
 	)
 	return i, err
 }
@@ -46,7 +46,7 @@ VALUES (
     $5,
     $6
 )
-RETURNING id, created_at, updated_at, name, url, user_id, last_fetched_at
+RETURNING id, created_at, updated_at, name, url, last_fetched_at, user_id
 `
 
 type CreateFeedParams struct {
@@ -74,14 +74,14 @@ func (q *Queries) CreateFeed(ctx context.Context, arg CreateFeedParams) (Feed, e
 		&i.UpdatedAt,
 		&i.Name,
 		&i.Url,
-		&i.UserID,
 		&i.LastFetchedAt,
+		&i.UserID,
 	)
 	return i, err
 }
 
 const getFeedByUrl = `-- name: GetFeedByUrl :one
-SELECT id, created_at, updated_at, name, url, user_id, last_fetched_at FROM feeds WHERE "url" = $1
+SELECT id, created_at, updated_at, name, url, last_fetched_at, user_id FROM feeds WHERE "url" = $1
 `
 
 func (q *Queries) GetFeedByUrl(ctx context.Context, url string) (Feed, error) {
@@ -93,14 +93,14 @@ func (q *Queries) GetFeedByUrl(ctx context.Context, url string) (Feed, error) {
 		&i.UpdatedAt,
 		&i.Name,
 		&i.Url,
-		&i.UserID,
 		&i.LastFetchedAt,
+		&i.UserID,
 	)
 	return i, err
 }
 
 const getFeeds = `-- name: GetFeeds :many
-SELECT id, created_at, updated_at, name, url, user_id, last_fetched_at FROM feeds
+SELECT id, created_at, updated_at, name, url, last_fetched_at, user_id FROM feeds
 `
 
 func (q *Queries) GetFeeds(ctx context.Context) ([]Feed, error) {
@@ -118,8 +118,8 @@ func (q *Queries) GetFeeds(ctx context.Context) ([]Feed, error) {
 			&i.UpdatedAt,
 			&i.Name,
 			&i.Url,
-			&i.UserID,
 			&i.LastFetchedAt,
+			&i.UserID,
 		); err != nil {
 			return nil, err
 		}
@@ -135,7 +135,7 @@ func (q *Queries) GetFeeds(ctx context.Context) ([]Feed, error) {
 }
 
 const getNextFeedToFetch = `-- name: GetNextFeedToFetch :one
-SELECT id, created_at, updated_at, name, url, user_id, last_fetched_at FROM feeds
+SELECT id, created_at, updated_at, name, url, last_fetched_at, user_id FROM feeds
 ORDER BY last_fetched_at NULLS FIRST
 LIMIT 1
 `
@@ -149,8 +149,8 @@ func (q *Queries) GetNextFeedToFetch(ctx context.Context) (Feed, error) {
 		&i.UpdatedAt,
 		&i.Name,
 		&i.Url,
-		&i.UserID,
 		&i.LastFetchedAt,
+		&i.UserID,
 	)
 	return i, err
 }

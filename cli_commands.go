@@ -326,7 +326,26 @@ func scrapeFeeds(s *state) error {
 	}
 
 	for i := 0; i < len(fetched_feed.Channel.Item); i++ {
-		fmt.Printf("* %v\n", fetched_feed.Channel.Item[i].Title)
+		// convert the title into a nullable string type for db compatability
+		title := fetched_feed.Channel.Item[i].Title
+		titleNull := sql.NullString{String: title, Valid: title != ""}
+
+		_, err := s.db.CreatePost(
+			context.Background(),
+			database.CreatePostParams{
+				ID:          uuid.New(),
+				CreatedAt:   time.Now(),
+				UpdatedAt:   time.Now(),
+				Title:       titleNull,
+				Url:         fetched_feed.Channel.Item[i].Link,
+				Description: fetched_feed.Channel.Item[i].Description,
+				PublishedAt: fetched_feed.Channel.Item[i].PubDate,
+				FeedID:      feed.ID,
+			},
+		)
+		if err != nil {
+			return fmt.Errorf("error creating post: %w", err)
+		}
 	}
 
 	return nil
@@ -351,8 +370,6 @@ func handlerAgg(s *state, cmd command) error {
 	for ; ; <-ticker.C {
 		scrapeFeeds(s)
 	}
-
-	return nil
 }
 
 func middlewareLoggedIn(handler func(s *state, cmd command, user database.User) error) func(*state, command) error {
