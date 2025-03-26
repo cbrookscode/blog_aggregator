@@ -155,26 +155,10 @@ func handlerUsers(s *state, cmd command) error {
 	return nil
 }
 
-func handlerAgg(s *state, cmd command) error {
-	// Check for expected length of arguements
-	if len(cmd.arguments) != 0 {
-		return fmt.Errorf("no arguments allowed for agg command")
-	}
-
-	rss, err := fetchFeed(context.Background(), "https://www.wagslane.dev/index.xml")
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("%v\n", rss)
-
-	return nil
-}
-
 func handlerAddFeed(s *state, cmd command, user database.User) error {
 	// Check for expected length of arguements
 	if len(cmd.arguments) != 2 {
-		return fmt.Errorf("need two arguements for add feed command")
+		return fmt.Errorf("need two arguements for add feed command- name, url")
 	}
 	name_string := cmd.arguments[0]
 	url_string := cmd.arguments[1]
@@ -318,6 +302,55 @@ func handlerUnfollow(s *state, cmd command, user database.User) error {
 	}
 
 	fmt.Printf("%v has been unfollowed for %v\n", feed.Name, user.Name)
+
+	return nil
+}
+
+func scrapeFeeds(s *state) error {
+	feed, err := s.db.GetNextFeedToFetch(context.Background())
+	if err != nil {
+		return fmt.Errorf("error getting next feed to fetch: %w", err)
+	}
+
+	err = s.db.MarkFeedFetched(
+		context.Background(),
+		feed.ID,
+	)
+	if err != nil {
+		return fmt.Errorf("error marking feed as fetched: %w", err)
+	}
+
+	fetched_feed, err := fetchFeed(context.Background(), feed.Url)
+	if err != nil {
+		return fmt.Errorf("error fetching feed: %w", err)
+	}
+
+	for i := 0; i < len(fetched_feed.Channel.Item); i++ {
+		fmt.Printf("* %v\n", fetched_feed.Channel.Item[i].Title)
+	}
+
+	return nil
+}
+
+func handlerAgg(s *state, cmd command) error {
+	// Check for expected length of arguements
+	if len(cmd.arguments) != 1 {
+		return fmt.Errorf("need one arguement - time duration")
+	}
+
+	// parse duration string into time duration value
+	time_between_reqs := cmd.arguments[0]
+	duration, err := time.ParseDuration(time_between_reqs)
+	if err != nil {
+		return fmt.Errorf("error parsing time duration string into duration value: %w", err)
+	}
+
+	// Setup a new ticker and logger that prints every interval of the duration value. Call scrapefeeds each time ticker ticks.
+	fmt.Printf("Collecting feeds every %v\n", duration)
+	ticker := time.NewTicker(duration)
+	for ; ; <-ticker.C {
+		scrapeFeeds(s)
+	}
 
 	return nil
 }
