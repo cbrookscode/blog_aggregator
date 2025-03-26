@@ -64,14 +64,14 @@ func (q *Queries) CreatePost(ctx context.Context, arg CreatePostParams) (Post, e
 	return i, err
 }
 
-const getPostsFromUser = `-- name: GetPostsFromUser :many
+const getPostsForUser = `-- name: GetPostsForUser :many
 SELECT id, created_at, updated_at, title, url, description, published_at, feed_id FROM posts
 ORDER BY published_at DESC
 LIMIT $1
 `
 
-func (q *Queries) GetPostsFromUser(ctx context.Context, limit int32) ([]Post, error) {
-	rows, err := q.db.QueryContext(ctx, getPostsFromUser, limit)
+func (q *Queries) GetPostsForUser(ctx context.Context, limit int32) ([]Post, error) {
+	rows, err := q.db.QueryContext(ctx, getPostsForUser, limit)
 	if err != nil {
 		return nil, err
 	}

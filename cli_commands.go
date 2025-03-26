@@ -330,7 +330,13 @@ func scrapeFeeds(s *state) error {
 		title := fetched_feed.Channel.Item[i].Title
 		titleNull := sql.NullString{String: title, Valid: title != ""}
 
-		_, err := s.db.CreatePost(
+		parsed_time, err := time.Parse(time.Layout, fetched_feed.Channel.Item[i].PubDate)
+		if err != nil {
+			return fmt.Errorf("error parsing published at string from post: %w", err)
+		}
+		timeNull := sql.NullTime{Time: parsed_time, Valid: parsed_time.IsZero()}
+
+		_, err = s.db.CreatePost(
 			context.Background(),
 			database.CreatePostParams{
 				ID:          uuid.New(),
@@ -339,7 +345,7 @@ func scrapeFeeds(s *state) error {
 				Title:       titleNull,
 				Url:         fetched_feed.Channel.Item[i].Link,
 				Description: fetched_feed.Channel.Item[i].Description,
-				PublishedAt: fetched_feed.Channel.Item[i].PubDate,
+				PublishedAt: timeNull,
 				FeedID:      feed.ID,
 			},
 		)
@@ -370,6 +376,19 @@ func handlerAgg(s *state, cmd command) error {
 	for ; ; <-ticker.C {
 		scrapeFeeds(s)
 	}
+}
+
+func handlerBrowse(s *state, cmd command) error {
+	posts, err := s.db.GetPostsForUser(context.Background(), 5)
+	if err != nil {
+		return fmt.Errorf("error getting posts for user: %w", &err)
+	}
+
+	for i := 0; i < len(posts); i++ {
+		fmt.Printf("* %v\n* %v\n", posts[i].Title, posts[i].Description)
+	}
+
+	return nil
 }
 
 func middlewareLoggedIn(handler func(s *state, cmd command, user database.User) error) func(*state, command) error {
@@ -411,6 +430,7 @@ func cli() (int, error) {
 	mycmds.register("follow", middlewareLoggedIn(handlerFollow))
 	mycmds.register("following", middlewareLoggedIn(handlerFollowing))
 	mycmds.register("unfollow", middlewareLoggedIn(handlerUnfollow))
+	mycmds.register("browse", handlerBrowse)
 
 	// build command struct based on inputs from user when running program. first arg is always program name, second is assumed to be command name, rest are arguements for command
 	cmd := command{}
