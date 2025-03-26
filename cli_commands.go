@@ -328,10 +328,10 @@ func cli() (int, error) {
 	mycmds.register("reset", handlerReset)
 	mycmds.register("users", handlerUsers)
 	mycmds.register("agg", handlerAgg)
-	mycmds.register("addfeed", handlerAddFeed)
+	mycmds.register("addfeed", middlewareLoggedIn(handlerAddFeed))
 	mycmds.register("feeds", handlerFeeds)
-	mycmds.register("follow", handlerFollow)
-	mycmds.register("following", handlerFollowing)
+	mycmds.register("follow", middlewareLoggedIn(handlerFollow))
+	mycmds.register("following", middlewareLoggedIn(handlerFollowing))
 
 	// build command struct based on inputs from user when running program. first arg is always program name, second is assumed to be command name, rest are arguements for command
 	cmd := command{}
