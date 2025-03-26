@@ -294,6 +294,34 @@ func handlerFollowing(s *state, cmd command, user database.User) error {
 	return nil
 }
 
+func handlerUnfollow(s *state, cmd command, user database.User) error {
+	// Check for expected length of arguements
+	if len(cmd.arguments) != 1 {
+		return fmt.Errorf("need one arguement - url")
+	}
+
+	// Grab Feed info
+	feed, err := s.db.GetFeedByUrl(context.Background(), cmd.arguments[0])
+	if err != nil {
+		return fmt.Errorf("error getting feed by url: %w", err)
+	}
+
+	err = s.db.DeleteFeedFollowRecordByUserFeedurlCombo(
+		context.Background(),
+		database.DeleteFeedFollowRecordByUserFeedurlComboParams{
+			UserID: user.ID,
+			FeedID: feed.ID,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("user doesn't follow this feed")
+	}
+
+	fmt.Printf("%v has been unfollowed for %v\n", feed.Name, user.Name)
+
+	return nil
+}
+
 func middlewareLoggedIn(handler func(s *state, cmd command, user database.User) error) func(*state, command) error {
 	return func(s *state, cmd command) error {
 		user, err := s.db.GetUser(context.Background(), s.cfg.CurrentUserName)
@@ -332,6 +360,7 @@ func cli() (int, error) {
 	mycmds.register("feeds", handlerFeeds)
 	mycmds.register("follow", middlewareLoggedIn(handlerFollow))
 	mycmds.register("following", middlewareLoggedIn(handlerFollowing))
+	mycmds.register("unfollow", middlewareLoggedIn(handlerUnfollow))
 
 	// build command struct based on inputs from user when running program. first arg is always program name, second is assumed to be command name, rest are arguements for command
 	cmd := command{}
