@@ -16,5 +16,8 @@ SELECT * FROM feeds WHERE "name" = $1 and "url" = $2;
 -- name: GetFeeds :many
 SELECT * FROM feeds;
 
+-- name: GetFeedByUrl :one
+SELECT * FROM feeds WHERE "url" = $1;
+
 -- name: DeleteAllFeeds :exec
 TRUNCATE feeds;

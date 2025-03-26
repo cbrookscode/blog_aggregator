@@ -171,7 +171,7 @@ func handlerAgg(s *state, cmd command) error {
 	return nil
 }
 
-func handlerAddFeed(s *state, cmd command) error {
+func handlerAddFeed(s *state, cmd command, user database.User) error {
 	// Check for expected length of arguements
 	if len(cmd.arguments) != 2 {
 		return fmt.Errorf("need two arguements for add feed command")
@@ -179,16 +179,7 @@ func handlerAddFeed(s *state, cmd command) error {
 	name_string := cmd.arguments[0]
 	url_string := cmd.arguments[1]
 
-	my_config, err := config.Read()
-	if err != nil {
-		return fmt.Errorf("err with reading config: %w", err)
-	}
-
-	user, err := s.db.GetUser(context.Background(), my_config.CurrentUserName)
-	if err != nil {
-		return fmt.Errorf("err with getting user: %w", err)
-	}
-
+	// create feed
 	new_feed, err := s.db.CreateFeed(context.Background(), database.CreateFeedParams{
 		ID:        uuid.New(),
 		CreatedAt: time.Now(),
@@ -199,6 +190,21 @@ func handlerAddFeed(s *state, cmd command) error {
 	})
 	if err != nil {
 		return fmt.Errorf("error with create feed: %w", err)
+	}
+
+	// create feed follow record for user addign feed
+	_, err = s.db.CreateFeedFollow(
+		context.Background(),
+		database.CreateFeedFollowParams{
+			ID:        uuid.New(),
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+			UserID:    user.ID,
+			FeedID:    new_feed.ID,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("error creating feed follow: %w", err)
 	}
 
 	fmt.Println(new_feed)
@@ -212,11 +218,13 @@ func handlerFeeds(s *state, cmd command) error {
 		return fmt.Errorf("no arguements needed for feeds command")
 	}
 
+	// Get feeds from db
 	feeds, err := s.db.GetFeeds(context.Background())
 	if err != nil {
 		return fmt.Errorf("error getting feeds from db: %w", err)
 	}
 
+	// Print out feeds name, url, and username that created the feed
 	for i := 0; i < len(feeds); i++ {
 		user, err := s.db.GetUserByID(context.Background(), feeds[i].UserID)
 		if err != nil {
@@ -229,6 +237,71 @@ func handlerFeeds(s *state, cmd command) error {
 	}
 
 	return nil
+}
+
+func handlerFollow(s *state, cmd command, user database.User) error {
+	// Check for expected length of arguements
+	if len(cmd.arguments) != 1 {
+		return fmt.Errorf("need one arguement - url")
+	}
+
+	// Grab Feed info
+	feed, err := s.db.GetFeedByUrl(context.Background(), cmd.arguments[0])
+	if err != nil {
+		return fmt.Errorf("error getting feed by url: %w", err)
+	}
+
+	// Create Feed Follow Record
+	feed_follow_info, err := s.db.CreateFeedFollow(
+		context.Background(),
+		database.CreateFeedFollowParams{
+			ID:        uuid.New(),
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+			UserID:    user.ID,
+			FeedID:    feed.ID,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("error creating feed follow: %w", err)
+	}
+
+	// Notify of success
+	fmt.Printf("* %v\n", feed_follow_info[0].FeedName)
+	fmt.Printf("* %v\n", feed_follow_info[0].UserName)
+
+	return nil
+}
+
+func handlerFollowing(s *state, cmd command, user database.User) error {
+	// Check for expected length of arguements
+	if len(cmd.arguments) != 0 {
+		return fmt.Errorf("no arguements needed for this function")
+	}
+
+	// Grab feed row info for given user
+	feed_follows, err := s.db.GetFeedFollowsForUser(context.Background(), user.ID)
+	if err != nil {
+		return fmt.Errorf("error getting feed follow info for given user: %w", err)
+	}
+
+	// Print out username and feed follow names for that user
+	fmt.Printf("%v is following the below feeds:\n", user.Name)
+	for i := 0; i < len(feed_follows); i++ {
+		fmt.Printf("* %v\n", feed_follows[i].FeedName)
+	}
+
+	return nil
+}
+
+func middlewareLoggedIn(handler func(s *state, cmd command, user database.User) error) func(*state, command) error {
+	return func(s *state, cmd command) error {
+		user, err := s.db.GetUser(context.Background(), s.cfg.CurrentUserName)
+		if err != nil {
+			return nil
+		}
+		return handler(s, cmd, user)
+	}
 }
 
 func cli() (int, error) {
@@ -257,6 +330,8 @@ func cli() (int, error) {
 	mycmds.register("agg", handlerAgg)
 	mycmds.register("addfeed", handlerAddFeed)
 	mycmds.register("feeds", handlerFeeds)
+	mycmds.register("follow", handlerFollow)
+	mycmds.register("following", handlerFollowing)
 
 	// build command struct based on inputs from user when running program. first arg is always program name, second is assumed to be command name, rest are arguements for command
 	cmd := command{}
