@@ -11,6 +11,36 @@ type Config struct {
 	CurrentUserName string `json:"current_user_name"`
 }
 
+func CreateConfigFile(url string) error {
+	new_config := &Config{
+		DbURL: url,
+	}
+
+	new_json, err := json.Marshal(new_config)
+	if err != nil {
+		return err
+	}
+
+	loc, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+
+	//create/overwrite existing file with blank slate
+	file, err := os.Create(loc + "/.gatorconfig.json")
+	if err != nil {
+		return err
+	}
+
+	//write to new blank file
+	_, err = file.WriteString(string(new_json))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func Read() (Config, error) {
 	// reads json gator config file and returns Config struct. should read file from home directory then decode json string in a new config struct. os.UserHomeDir to get location of HOME.
 	loc, err := os.UserHomeDir()
