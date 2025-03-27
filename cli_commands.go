@@ -5,11 +5,13 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	config "github.com/cbrookscode/blog_aggregator/internal/config"
 	"github.com/cbrookscode/blog_aggregator/internal/database"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 // DB URL - "postgres://postgres:postgres@localhost:5432/gator?sslmode=disable"
@@ -330,12 +332,18 @@ func scrapeFeeds(s *state) error {
 		title := fetched_feed.Channel.Item[i].Title
 		titleNull := sql.NullString{String: title, Valid: title != ""}
 
+		// parse time string and convert into appropriate type for db
 		parsed_time, err := time.Parse(time.Layout, fetched_feed.Channel.Item[i].PubDate)
 		if err != nil {
-			return fmt.Errorf("error parsing published at string from post: %w", err)
+			layout := "Mon, 02 Jan 2006 15:04:05 +0000"
+			parsed_time, err = time.Parse(layout, fetched_feed.Channel.Item[i].PubDate)
+			if err != nil {
+				return fmt.Errorf("error parsing published at string from post: %w", err)
+			}
 		}
 		timeNull := sql.NullTime{Time: parsed_time, Valid: parsed_time.IsZero()}
 
+		// create post
 		_, err = s.db.CreatePost(
 			context.Background(),
 			database.CreatePostParams{
@@ -349,7 +357,14 @@ func scrapeFeeds(s *state) error {
 				FeedID:      feed.ID,
 			},
 		)
+
+		// skip erroring out of function call if err is due to trying to create post with duplicate url value
 		if err != nil {
+			if pqErr, ok := err.(*pq.Error); ok {
+				if pqErr.Constraint == "posts_url_key" {
+					continue
+				}
+			}
 			return fmt.Errorf("error creating post: %w", err)
 		}
 	}
@@ -374,14 +389,28 @@ func handlerAgg(s *state, cmd command) error {
 	fmt.Printf("Collecting feeds every %v\n", duration)
 	ticker := time.NewTicker(duration)
 	for ; ; <-ticker.C {
-		scrapeFeeds(s)
+		fmt.Println("calling scrapefeeds")
+		err = scrapeFeeds(s)
+		if err != nil {
+			return fmt.Errorf("error calling scrapefeeds: %w", err)
+		}
 	}
 }
 
 func handlerBrowse(s *state, cmd command) error {
-	posts, err := s.db.GetPostsForUser(context.Background(), 5)
+	// Check for expected length of arguements
+	limit := 2
+	if len(cmd.arguments) == 1 {
+		conv_arg, err := strconv.Atoi(cmd.arguments[0])
+		if err != nil {
+			return fmt.Errorf("error converting arguement into an int: %w", err)
+		}
+		limit = conv_arg
+	}
+
+	posts, err := s.db.GetPostsForUser(context.Background(), int32(limit))
 	if err != nil {
-		return fmt.Errorf("error getting posts for user: %w", &err)
+		return fmt.Errorf("error getting posts for user: %w", err)
 	}
 
 	for i := 0; i < len(posts); i++ {
