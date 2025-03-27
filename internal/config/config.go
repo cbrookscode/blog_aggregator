@@ -2,6 +2,7 @@ package internal
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 )
@@ -18,24 +19,24 @@ func CreateConfigFile(url string) error {
 
 	new_json, err := json.Marshal(new_config)
 	if err != nil {
-		return err
+		return fmt.Errorf("error marshalling new config into json: %w", err)
 	}
 
 	loc, err := os.UserHomeDir()
 	if err != nil {
-		return err
+		return fmt.Errorf("error obtaining home dir for this pc: %w", err)
 	}
 
 	//create/overwrite existing file with blank slate
 	file, err := os.Create(loc + "/.gatorconfig.json")
 	if err != nil {
-		return err
+		return fmt.Errorf("error creating gatorconfig file in users home dir: %w", err)
 	}
 
 	//write to new blank file
 	_, err = file.WriteString(string(new_json))
 	if err != nil {
-		return err
+		return fmt.Errorf("error writing new json into gatorconfig file: %w", err)
 	}
 
 	return nil

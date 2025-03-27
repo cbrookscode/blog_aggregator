@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"database/sql"
 	"fmt"
@@ -52,6 +53,32 @@ func (c *commands) run(s *state, cmd command) error {
 		return err
 	}
 	return nil
+}
+
+// Logs on a user which simply means adjusting the config file with the users name. Will only be done if user has been registered
+func SetupConfig() error {
+	fmt.Printf("Enter in your db url: ")
+	var url string
+	scanner := bufio.NewScanner(os.Stdin)
+	if scanner.Scan() {
+		url = scanner.Text()
+	} else if err := scanner.Err(); err != nil {
+		return fmt.Errorf("error getting user input for db url string: %w", err)
+	}
+
+	err := config.CreateConfigFile(url)
+	if err != nil {
+		return fmt.Errorf("error creating config file with provided url: %w", err)
+	}
+
+	fmt.Printf("Successfully setup your config file with %v as your database url\n", url)
+	return nil
+}
+
+func SetupDBTables(cfg config.Config) error {
+	url := cfg.DbURL
+	goose.
+
 }
 
 // Logs on a user which simply means adjusting the config file with the users name. Will only be done if user has been registered
@@ -431,10 +458,22 @@ func middlewareLoggedIn(handler func(s *state, cmd command, user database.User) 
 }
 
 func cli() (int, error) {
-	// Read file to use for app state initialization, and print output of config file to get before snapshot
+	// Read file to use for app state initialization. Create config file if it doesn't exist in users home dir.
 	my_config, err := config.Read()
 	if err != nil {
-		return 1, err
+		if osErr, ok := err.(*os.PathError); ok {
+			if osErr.Error() == "open /home/taximan529/.gatorconfig.json: no such file or directory" {
+				fmt.Println("setting up your config file...")
+				SetupConfig()
+				fmt.Println("config file setup completed")
+				fmt.Println("Please rerun the program again with your specified command now that the config file has been setup")
+				return 0, nil
+			} else {
+				return 1, fmt.Errorf("error creating post: %w", err)
+			}
+		} else {
+			return 1, fmt.Errorf("error creating post: %w", err)
+		}
 	}
 
 	// Open connection to the DB and intialize app_state
